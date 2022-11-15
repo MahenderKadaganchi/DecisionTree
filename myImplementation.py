@@ -171,103 +171,123 @@ class Decision_tree_classification:
         if metric_type == "gain":
             print("Current Entropy = ", self.new_get_entropy(out_list))
             print("Data is split using the feature: ", best_metric,
-                  " with Gain ratio= ", self.new_get_gain_ratio(x, out_list, best_metric))
+                  " with Gain ratio= ", self.new_get_gain_ratio(d, out_list, best_metric))
         else:
             print("Current gini index = 0", self.new_get_gini_value(out_list))
             print("Data is split using the feature: ", best_metric,
-                  " with Gini gain = ", self.new_get_gini_max(x, out_list, best_metric))
+                  " with Gini gain = ", self.new_get_gini_max(d, out_list, best_metric))
         print()
-        values = set(x[:, best_metric])
-        df_complete = pd.DataFrame(x)
-        df_x = pd.DataFrame(x)
+        values = set(d[:, best_metric])
+        df_complete = pd.DataFrame(d)
+        df_x = pd.DataFrame(d)
         df_complete[df_complete.shape[1]] = out_list
         curr_node = Tree(best_metric, output)
-        temp_index = -1
-        for i in features_list:
-            if i == best_metric:
-                temp_index = i
-                break
+        index = features_list.index(best_metric)
         features_list.remove(best_metric)
 
         for i in values:
             dfx = df_x[df_x[best_metric] == i]
             dfy = df_complete[df_complete[best_metric] == i]
-            node = self.decision_tree(dfx.to_numpy(), (dfy.to_numpy()[:, -1:]).flatten(), features_list, tree_depth + 1,
-                                      features_list, classes)
+            node = self.decision_tree(dfx.to_numpy(), (dfy.to_numpy()[:, -1:]).flatten(),metric_type, features_list, tree_depth + 1, classes)
             curr_node.add_child(i, node)
 
-        features_list.insert(temp_index, best_metric)
+        features_list.insert(index, best_metric)
         return curr_node
 
     def preprocessing(self, d, y, metric_type="gain"):
-        feature_list = []
-        for i in range(len(d[0])):
-            feature_list.append(i)
+        features = [i for i in range(len(d[0]))]
         classes = set(y)
         initial_depth = 0
-        self.__root = self.decision_tree(d, y, metric_type, feature_list, initial_depth, classes)
+        self.__root = self.decision_tree(d, y,metric_type, features, initial_depth, classes)
 
     def __predict_for(self, data, node):
         # predicts the class for a given testing point and returns the answer
 
         # We have reached a leaf node
+        print("In Predict For: ")
+        print("Node value : ", node.val, " Node children: ", len(node.children), " Node output: ", type(node.output))
         if len(node.children) == 0:
+            print("Inside the if condition len(node.children) == 0:")
             return node.output
+        print("In Predict For after : len(node.children) == 0")
 
         val = data[node.val]  # represents the value of feature on which the split was made
+        print("In Predict For after val = data[node.val]")
         if val not in node.children:
             return node.output
 
+        print("In Predict For after if val not in node.children:")
         # Recursively call on the splits
         return self.__predict_for(data, node.children[val])
 
     def predict(self, d):
-        Y = np.array([0 for i in range(len(d))])
+        Y = [0 for i in range(len(d))]
         for i in range(len(d)):
+            print("Predict: Row number = ", i,"| Data = ", d[i])
             Y[i] = self.__predict_for(d[i], self.__root)
-        return Y
+        return np.array(Y)
 
     def score(self, X, Y):
         # returns the mean accuracy
-        Y_pred = self.predict(X)
+        # Y_pred = self.predict(X)
         count = 0
-        for i in range(len(Y_pred)):
-            if Y_pred[i] == Y[i]:
+        for i in range(len(Y)):
+            if X[i] == Y[i]:
                 count += 1
-        return count / len(Y_pred)
+        return count / len(Y)
 
 
-x = np.array([[0, 0, 5],
-              [0, 1, 2],
-              [1, 0, 3],
-              [1, 1, 4]])
-
-y = np.array([0,
-              1,
-              1,
-              1])
-print(x)
-print(y)
-clf1 = Decision_tree_classification()
-clf1.preprocessing(x, y)
-Y_pred = clf1.predict(x)
-print("Predictions :", Y_pred)
-print()
-print("Score :", clf1.score(x, y)) # Score on training data
-print()
-
+# x = np.array([[0, 0],
+#               [0, 1],
+#               [1, 0]])
+#
+# y = np.array([0,
+#               1,
+#               1])
+# x1 =([[1,1]])
+# y1=np.array([1])
+# print(x1)
+# print(y1)
 # clf1 = Decision_tree_classification()
-# # print(__gain_ratio(x, y, 2))
-# print(clf1.new_get_gain_ratio(x, y, 0))
-# # print(__gini_index(y))
-# print(clf1.new_get_gini_value(y))
-# # print(__gini_gain(x,y,2))
-# print(clf1.new_get_gini_max(x, y, 0))
-# df_x = pd.DataFrame(x)
-# dfx = df_x[df_x[0] == 0]
-# print(dfx.to_numpy())
-# df_complete = pd.DataFrame(x)
-# df_complete[df_complete.shape[1]] = y
-# dfy = df_complete[df_complete[0] == 0]
-# yy = dfy.to_numpy()[:, -1:]
-# print(yy.flatten())
+# clf1.preprocessing(x, y)
+# # Y_pred = clf1.predict(x1)
+# # print("Predictions :", Y_pred)
+# print()
+# # print("Score :", clf1.score(x1, y1)) # Score on training data
+# print()
+
+from sklearn import model_selection
+#data = pd.read_csv("abalone-Multipleclasses.csv.data", skiprows=1, header=None)
+# data = pd.read_csv("DataSet\glass-identification-7-classes.csv", skiprows=1, header=None)
+# Generating a random dataset
+#X, Y = datasets.make_classification(n_samples=100, n_features=5, n_classes=3, n_informative=3, random_state=0)
+# To reduce the values a feature can take ,converting floats to int
+# df = pd.read_csv('DataSet\\tic-tac-toe-2classes.csv')
+# df = pd.read_csv('DataSet\car-evaluation-4classes.csv')
+# df = pd.read_csv('DataSet\seisimic-bumps-2classes.csv')
+# df = pd.read_csv('DataSet\contraceptivemethodchoice-3-classes.csv')
+df = pd.read_csv('DataSet\poker-hand-training-true-9classes.csv')
+lst = df.values.tolist()
+trainDF_x, testDF_x = model_selection.train_test_split(lst, test_size=0.2)
+trainDF_y =[]
+for l in trainDF_x:
+    trainDF_y.append(l[-1])
+    del l[-1]
+
+testDF_y = []
+for lst in testDF_x:
+    testDF_y.append(lst[-1])
+    del lst[-1]
+
+print('X train: ', np.array(lst))
+print('Y train: ', np.array(trainDF_y))
+print('X test: ', np.array(testDF_x))
+print('Y test: ', np.array(testDF_y))
+
+clf2 = Decision_tree_classification()
+clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten())
+Y_pred2 = clf2.predict(np.array(testDF_x))
+print("Predictions : ", Y_pred2)
+print("Predictions Type: ", type(Y_pred2[0]))
+print(clf2.score(np.array(testDF_y), Y_pred2))
+print()
