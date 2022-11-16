@@ -10,6 +10,7 @@ from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
 from pandas.api.types import is_string_dtype
 from pandas.api.types import is_numeric_dtype
+from sklearn.metrics import accuracy_score
 
 
 class Tree:
@@ -143,7 +144,7 @@ class Decision_tree_classification:
                 if curr_gain > max_value:
                     best_feature = i
                     max_value = curr_gain
-            else:
+            elif type == "infogain":
                 curr_gain = self.get_information_gain(d, y, i)
                 if curr_gain > max_value:
                     best_feature = i
@@ -206,7 +207,7 @@ class Decision_tree_classification:
         return curr_node
 
     # Preprocessing method is used to append all the attributes, output classes present in the data set
-    def preprocessing(self, d, y, metric_type="gain"):
+    def preprocessing(self, d, y, metric_type):
         features = [i for i in range(len(d[0]))]
         classes = set(y)
         initial_depth = 0
@@ -253,7 +254,7 @@ class Decision_tree_classification:
 
     def print_tree(self):
         self.print_tree_only(self.__root, "")
-# x = np.array([[0, 0],
+# Testing example x = np.array([[0, 0],
 #               [0, 1],
 #               [1, 0]])
 #
@@ -289,36 +290,29 @@ def preprocess_dataset(data,datatype):#preprocessing the dataframe before passin
         data.fillna(data.mean())
 
     #finding min, max, iqr's of data and splitting the values accordigly
-    for (columnName, columnData) in data.iteritems():
-        '''if is_numeric_dtype(df[columnName]):
-            min = df.describe().loc[['min']]
-            iqr1 = df.describe().loc[['25%']]
-            med = df.describe().loc[['50%']]
-            iqr3 = df.describe().loc[['75%']]
-            max = df.describe().loc[['max']]
-            df[columnName] = pd.cut(x=df[columnName], bins=[min,iqr1,med,iqr3,max], labels=[f'>{min} & <{iqr1}',
-                                                                                            f'>{iqr1} & <{med}',
-                                                                                            f'>{med} & <{iqr3}',
-                                                                                            f'>{iqr3} & <{max}',
-                                                                                            f'>{max}'])'''
+    try:
+        for (columnName, columnData) in data.iteritems():
+            if is_numeric_dtype(df[columnName]):
+                min = df.describe().loc[['min']]
+                iqr1 = df.describe().loc[['25%']]
+                med = df.describe().loc[['50%']]
+                iqr3 = df.describe().loc[['75%']]
+                max = df.describe().loc[['max']]
+                df[columnName] = pd.cut(x=df[columnName], bins=[min, iqr1, med, iqr3, max], labels=[f'>{min} & <{iqr1}',
+                                                                                                    f'>{iqr1} & <{med}',
+                                                                                                    f'>{med} & <{iqr3}',
+                                                                                                    f'>{iqr3} & <{max}',
+                                                                                                    f'>{max}'])
+    except:
+        print()
 
     return data
 
 
-# data = pd.read_csv("abalone-Multipleclasses.csv.data", skiprows=1, header=None)
-# data = pd.read_csv("DataSet\glass-identification-7-classes.csv", skiprows=1, header=None)
-# Generating a random dataset
-# X, Y = datasets.make_classification(n_samples=100, n_features=5, n_classes=3, n_informative=3, random_state=0)
-# To reduce the values a feature can take ,converting floats to int
-# df = pd.read_csv('DataSet\\tic-tac-toe-2classes.csv')
-# df = pd.read_csv('DataSet\car-evaluation-4classes.csv')
-# df = pd.read_csv('DataSet\seisimic-bumps-2classes.csv')
-#df = pd.read_csv('DataSet/breast-cancer-2classes.csv')
-# df = pd.read_csv('DataSet\poker-hand-training-true-9classes.csv')
-# df = pd.read_csv('DataSet\data_banknote_authentication-2classes.csv')
+
 time_elapsed = {}
 memory_usage = {}
-dir = 'FinalDataSets/Dataset13-arrhythmia-16classes.csv'
+dir = 'FinalDataSets/Dataset15-Maternal Health Risk Data Set.csv'
 df = pd.read_csv(dir)
 df.describe()
 
@@ -356,21 +350,43 @@ for lst in testDF_x:
     testDF_y.append(lst[-1])
     del lst[-1]
 
-print('X train: ', np.array(trainDF_x))
-print('Y train: ', np.array(trainDF_y))
-print('X test: ', np.array(testDF_x))
-print('Y test: ', np.array(testDF_y))
+accuracy_scores = {}
 
 clf2 = Decision_tree_classification()
-clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten())
+clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"gain")
 ourmodel_pred = clf2.predict(np.array(testDF_x))
-print("Predictions of our model : ", ourmodel_pred)
-print("Accuracy Score of our model: {0:0.4f}".format( clf2.score(np.array(testDF_y), ourmodel_pred)))
+print("Predictions of our model with gain ratio: ", ourmodel_pred)
+print("Accuracy Score of our model with gain ratio metric: {0:0.4f}".format( clf2.score(np.array(testDF_y), ourmodel_pred)))
 tock = time.time() # end time
-memory_usage['Our Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+memory_usage['Our Model Memory Usage with GainRatio'] = tracemalloc.get_traced_memory()[0]
 tracemalloc.stop()
-time_elapsed['Our Model time'] = round((tock - tick) * 1000, 2)
+time_elapsed['Our Model time with Gain Ratio'] = round((tock - tick) * 1000, 2)
+accuracy_scores['Our Model time with Gain Ratio'] = clf2.score(np.array(testDF_y), ourmodel_pred)
 print()
+
+tracemalloc.start()
+tick = time.time()
+clf3 = Decision_tree_classification()
+clf3.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"gini")
+ourmodel_pred_gini = clf3.predict(np.array(testDF_x))
+print("Accuracy Score of our model with gini index metric: {0:0.4f}".format( clf3.score(np.array(testDF_y), ourmodel_pred_gini)))
+tock = time.time()
+memory_usage['Our Model Memory Usage with Gini Index'] = tracemalloc.get_traced_memory()[0]
+tracemalloc.stop()
+time_elapsed['Our Model time with Gini Index'] = round((tock - tick) * 1000, 2)
+accuracy_scores['Our Model time with Gini Index'] = clf3.score(np.array(testDF_y), ourmodel_pred_gini)
+
+tracemalloc.start()
+tick = time.time()
+clf5 = Decision_tree_classification()
+clf5.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"infogain")
+ourmodel_pred_infogain = clf5.predict(np.array(testDF_x))
+print("Accuracy Score of our model with Information Info Gain: {0:0.4f}".format( clf5.score(np.array(testDF_y), ourmodel_pred_infogain)))
+tock = time.time()
+memory_usage['Our Model Memory Usage with Info Gain'] = tracemalloc.get_traced_memory()[0]
+tracemalloc.stop()
+time_elapsed['Our Model time with Info  Gain'] = round((tock - tick) * 1000, 2)
+accuracy_scores['Our Model time with Info Gain'] = clf5.score(np.array(testDF_y), ourmodel_pred_infogain)
 
 if is_categorical:
     tracemalloc.start()
@@ -388,8 +404,9 @@ if is_categorical:
     inbuiltmodel_pred = clf4.predict(X_test)
     tock = time.time()
     print('Accuracy Score of Sklearn Decision Tree Model Categorical: {0:0.4f}'.format( metrics.accuracy_score(inbuiltmodel_pred, Y_test)))
-    time_elapsed['Inbuilt DT Model time'] = round((tock - tick) * 1000, 2)
-    memory_usage['Inbuilt DT Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    time_elapsed['SKlearn DT Model time'] = round((tock - tick) * 1000, 2)
+    memory_usage['Sklearn DT Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    accuracy_scores['Sklearn DT Model Accuracy'] = metrics.accuracy_score(inbuiltmodel_pred, Y_test)
     tracemalloc.stop()
 
     from sklearn.svm import SVC
@@ -403,6 +420,7 @@ if is_categorical:
     memory_usage['SVM Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
     tracemalloc.stop()
     time_elapsed['SVM Model time'] = round((tock - tick) * 1000, 2)
+    accuracy_scores['SVM Model Accuracy'] = accuracy_score(svm_pred, Y_test)
     print('Accuracy Score of Sklearn SVM Model Categorical: {0:0.4f}'.format(accuracy_score(svm_pred, Y_test)))
 
 else:
@@ -416,7 +434,8 @@ else:
     memory_usage['Inbuilt DT Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
     time_elapsed['Inbuilt DT Model time'] = round((tock - tick) * 1000, 2)
     tracemalloc.stop()
-    print('Accuracy Score of Sklearn Decision tree Model Numerical: {0:0.4f}' .format(clf2.score(np.array(testDF_y), inbuiltmodel_pred)))
+    accuracy_scores['Sklearn DT Model Accuracy'] = accuracy_score(np.array(testDF_y), inbuiltmodel_pred)
+    print('Accuracy Score of Sklearn Decision tree Model Numerical: {0:0.4f}' .format(accuracy_score(np.array(testDF_y), inbuiltmodel_pred)))
 
     # """""performing SVM on same dataset"""""
     from sklearn.svm import SVC
@@ -430,6 +449,7 @@ else:
     memory_usage['SVM Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
     tracemalloc.stop()
     time_elapsed['SVM Model time'] = round((tock - tick) * 1000, 2)
+    accuracy_scores['SVM Model Accuracy'] = accuracy_score(testDF_y, svm_pred)
     print('Accuracy Score of Sklearn SVM Model Numerical: {0:0.4f}'.format(accuracy_score(testDF_y, svm_pred)))
 
     #Tensorflow Implementation for numerical data
@@ -472,6 +492,7 @@ else:
     time_elapsed['TensorFlow Model time'] = round((tock - tick) * 1000, 2)
     memory_usage['Tensorflow model memory usage'] = tracemalloc.get_traced_memory()[0]
     tracemalloc.stop()
+    accuracy_scores['SVM Model Accuracy'] = accuracy
 
 
 
@@ -491,6 +512,12 @@ with open(f'Outputs/{outfolder}/Tables_{table_path}.csv', 'w') as f:
     writer.writerow(data)
     for key in memory_usage.keys():
         f.write("%s,%s\n" % (key, memory_usage[key]*0.001))
+    writer.writerow('')
+    data = ["Model", "Accuracy"]
+    writer = csv.writer(f)
+    writer.writerow(data)
+    for key in accuracy_scores.keys():
+        f.write("%s,%s\n" % (key, accuracy_scores[key]))
     writer.writerow('')
 
 print('---------------ACCURACY SCORES OF EACH MODEL-----------------')
@@ -528,7 +555,7 @@ if len(set(trainDF_y))==2:
 
     cm_display.plot()
     plt.savefig(f'Outputs/{outfolder}/ConfusionMatrix.png')
-    plt.show()
+    #plt.show()
 
     from sklearn.metrics import roc_curve, roc_auc_score
     try:
@@ -542,10 +569,6 @@ if len(set(trainDF_y))==2:
         plt.ylabel('True Positive Rate')
         plt.xlabel('False Positive Rate')
         plt.savefig(f'Outputs/{outfolder}/ROCCurve.png')
-        plt.show()
+        #plt.show()
     except:
         print('ROC CURVE NOT GENERATED')
-
-
-
-
