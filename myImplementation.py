@@ -1,9 +1,14 @@
+import time
+import tracemalloc
+
+from sklearn import metrics
 import pandas as pd
 import numpy as np
 import math
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
-
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
 
 
 class Tree:
@@ -268,6 +273,34 @@ class Decision_tree_classification:
 # clf1.print_tree()
 
 from sklearn import model_selection
+def preprocess_dataset(data,datatype):#preprocessing the dataframe before passing it to decision tree algo.
+    #check summary of null values in the dataframe
+    print(df.isnull().sum())
+    #filling missing data with mode
+    if datatype=='categorical' and df.isnull().values.any():
+        fill_mode = lambda col: col.fillna(col.mode())
+        data.apply(fill_mode, axis=0)
+
+    #filling missing values with mean of each column
+    if datatype=='numerical' and df.isnull().values.any():
+        data.fillna(data.mean())
+
+    #finding min, max, iqr's of data and splitting the values accordigly
+    for (columnName, columnData) in data.iteritems():
+        if is_numeric_dtype(df[columnName]):
+            min = df.describe().loc[['min']]
+            iqr1 = df.describe().loc[['25%']]
+            med = df.describe().loc[['50%']]
+            iqr3 = df.describe().loc[['75%']]
+            max = df.describe().loc[['max']]
+            df[columnName] = pd.cut(x=df[columnName], bins=[min,iqr1,med,iqr3,max], labels=[f'>{min} & <{iqr1}',
+                                                                                            f'>{iqr1} & <{med}',
+                                                                                            f'>{med} & <{iqr3}',
+                                                                                            f'>{iqr3} & <{max}',
+                                                                                            f'>{max}'])
+
+    return data
+
 
 # data = pd.read_csv("abalone-Multipleclasses.csv.data", skiprows=1, header=None)
 # data = pd.read_csv("DataSet\glass-identification-7-classes.csv", skiprows=1, header=None)
@@ -277,12 +310,23 @@ from sklearn import model_selection
 # df = pd.read_csv('DataSet\\tic-tac-toe-2classes.csv')
 # df = pd.read_csv('DataSet\car-evaluation-4classes.csv')
 # df = pd.read_csv('DataSet\seisimic-bumps-2classes.csv')
-df = pd.read_csv('DataSet\\breast-cancer-2classes.csv')
+#df = pd.read_csv('DataSet/breast-cancer-2classes.csv')
 # df = pd.read_csv('DataSet\poker-hand-training-true-9classes.csv')
 # df = pd.read_csv('DataSet\data_banknote_authentication-2classes.csv')
+time_elapsed = {}
+memory_usage = {}
+df = pd.read_csv('DataSet/poker-hand-training-true-9classes.csv')
+
+print(df.isnull().sum())
+
+is_categorical = True
+if len(list(set(df.columns) - set(df._get_numeric_data().columns)))==0:
+    is_categorical = False
 lst = df.values.tolist()
-trainDF_x, testDF_x = model_selection.train_test_split(lst, test_size=0.2)
-trainDF_y = []
+tick = time.time()#start time
+tracemalloc.start()
+trainDF_x, testDF_x = model_selection.train_test_split(lst, test_size=0.3)
+trainDF_y =[]
 for l in trainDF_x:
     trainDF_y.append(l[-1])
     del l[-1]
@@ -292,38 +336,161 @@ for lst in testDF_x:
     testDF_y.append(lst[-1])
     del lst[-1]
 
-print('X train: ', np.array(trainDF_x))
+print('X train: ', np.array(lst))
 print('Y train: ', np.array(trainDF_y))
 print('X test: ', np.array(testDF_x))
 print('Y test: ', np.array(testDF_y))
 
 clf2 = Decision_tree_classification()
-tree = clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(), "gain")
-Y_pred2 = clf2.predict(np.array(testDF_x))
-print("Predictions of our model: ", Y_pred2)
-# clf2.print_tree()
-print()
-print("Score of our model: ", clf2.score(np.array(testDF_y), Y_pred2))
+clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten())
+ourmodel_pred = clf2.predict(np.array(testDF_x))
+print("Predictions of our model : ", ourmodel_pred)
+print("Accuracy Score of our model: {0:0.4f}".format( clf2.score(np.array(testDF_y), ourmodel_pred)))
+tock = time.time() # end time
+memory_usage['Our Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+tracemalloc.stop()
+time_elapsed['Our Model time'] = round((tock - tick) * 1000, 2)
 print()
 
+if is_categorical:
+    tracemalloc.start()
+    comp_df = df
+    comp_df.fillna(0)
+    comp_df = pd.get_dummies(comp_df, drop_first=True)
+    #print(comp_df)
+    X = comp_df.iloc[:, :-1].values
+    Y = comp_df.iloc[:, -1].values.reshape(-1, 1)
+    tick = time.time()
+    X_train, X_test, Y_train, Y_test = model_selection.train_test_split(X, Y, test_size=.3, random_state=41)
+    clf4 = tree.DecisionTreeClassifier()
+    #print(X_train)
+    clf4.fit(X_train, Y_train)
+    inbuiltmodel_pred = clf4.predict(X_test)
+    tock = time.time()
+    print('Accuracy Score of Sklearn Decision Tree Model Categorical: {0:0.4f}'.format( metrics.accuracy_score(inbuiltmodel_pred, Y_test)))
+    time_elapsed['Inbuilt DT Model time'] = round((tock - tick) * 1000, 2)
+    memory_usage['Inbuilt DT Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    tracemalloc.stop()
 
-# print("Performing inbuilt DT on same dataset::")
-# clf4 = DecisionTreeClassifier()
-# clf4.fit(np.array(trainDF_x), np.array(trainDF_y))
-# inbuiltmodel_pred = clf4.predict(np.array(testDF_x))
-# print('Predictions Score of Inbuilt Model: {0:0.4f}'.format(clf2.score(np.array(testDF_y), inbuiltmodel_pred)))
-# print()
-#
-# print("Performing SVM on same dataset::")
-# from sklearn.svm import SVC
-# from sklearn.metrics import accuracy_score
-# svc=SVC()
-# svc.fit(np.array(trainDF_x), np.array(trainDF_y).flatten())
-# svm_pred=svc.predict(np.array(testDF_x))
-# print('SVM Model accuracy score with default hyperparameters: {0:0.4f}'. format(accuracy_score(testDF_y, svm_pred)))
-#
-#
-# #Saving predictions generated by the three models
-# save_df = pd.DataFrame({"Original Test Data": testDF_y, "OurModel Predictions" : Y_pred2, "InBuilt DT Predictions:" : inbuiltmodel_pred, "SVM Model Predictions" : svm_pred})
-# save_df.to_csv("Predictions.csv", index=False)
-# print()
+    from sklearn.svm import SVC
+    from sklearn.metrics import accuracy_score
+    tracemalloc.start()
+    tick = time.time()
+    svc = SVC()
+    svc.fit(X_train, Y_train)
+    svm_pred = svc.predict(X_test)
+    tock = time.time()
+    memory_usage['SVM Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    tracemalloc.stop()
+    time_elapsed['SVM Model time'] = round((tock - tick) * 1000, 2)
+    print('Accuracy Score of Sklearn SVM Model Categorical: {0:0.4f}'.format(accuracy_score(svm_pred, Y_test)))
+
+else:
+    # Performing inbuilt DT on same dataset::
+    tracemalloc.start()
+    tick = time.time()
+    clf4 = tree.DecisionTreeClassifier()
+    clf4.fit(np.array(trainDF_x), np.array(trainDF_y))
+    inbuiltmodel_pred = clf4.predict(np.array(testDF_x))
+    tock = time.time()
+    memory_usage['Inbuilt DT Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    time_elapsed['Inbuilt DT Model time'] = round((tock - tick) * 1000, 2)
+    tracemalloc.stop()
+    print('Accuracy Score of Sklearn Decision tree Model Numerical: {0:0.4f}' .format(clf2.score(np.array(testDF_y), inbuiltmodel_pred)))
+
+    # """""performing SVM on same dataset"""""
+    from sklearn.svm import SVC
+    from sklearn.metrics import accuracy_score
+    tracemalloc.start()
+    tick = time.time()
+    svc = SVC()
+    svc.fit(np.array(trainDF_x), np.array(trainDF_y).flatten())
+    svm_pred = svc.predict(np.array(testDF_x))
+    tock = time.time()
+    memory_usage['SVM Model Memory Usage'] = tracemalloc.get_traced_memory()[0]
+    tracemalloc.stop()
+    time_elapsed['SVM Model time'] = round((tock - tick) * 1000, 2)
+    print('Accuracy Score of Sklearn SVM Model Numerical: {0:0.4f}'.format(accuracy_score(testDF_y, svm_pred)))
+
+    #Tensorflow Implementation for numerical data
+    import tensorflow as tf
+    from tensorflow import keras
+    from keras import layers, datasets, models
+    import numpy as np
+    import pandas as pd
+    from sklearn import model_selection, metrics
+
+    ten_df = df
+    tick = time.time()
+    tracemalloc.start()
+    X = ten_df.iloc[:, :-1].values
+    Y = ten_df.iloc[:, -1].values.reshape(-1, 1)
+    X_train, X_test, Y_train, Y_test = model_selection.train_test_split(X, Y, test_size=.2, random_state=41)
+    print(len(X_train))
+    print(len(Y_train))
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(9, activation='relu'),
+        tf.keras.layers.Dense(10, activation='relu'),
+        tf.keras.layers.Dense(1, activation='softmax')
+    ])
+    model.compile(optimizer='rmsprop',
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    model.fit(X_train, Y_train, batch_size=50, epochs=100)
+    loss, accuracy = model.evaluate(X_test, Y_test, verbose=0)
+    print('Test loss:', loss)
+    print('Test accuracy:', accuracy)
+    tensor_pred = model.predict(X_test)
+    tensor_pred = np.argmax(tensor_pred, axis=1)
+    y_test = np.argmax(Y_test, axis=1)
+    cm = metrics.confusion_matrix(y_test, tensor_pred)
+    print(cm)
+    print('Accuracy Score of Tensorflow Classification:: {0:0.4f}'.format( accuracy))
+    print(metrics.confusion_matrix(y_test, tensor_pred))
+    print(metrics.classification_report(y_test, tensor_pred))
+    tock = time.time()
+    time_elapsed['TensorFlow Model time'] = round((tock - tick) * 1000, 2)
+    memory_usage['Tensorflow model memory usage'] = tracemalloc.get_traced_memory()[0]
+    tracemalloc.stop()
+
+
+
+#Saving predictions generated by the three models
+save_df = pd.DataFrame({"Original Test Data": testDF_y, "OurModel Predictions" : ourmodel_pred, "InBuilt DT Predictions:" : inbuiltmodel_pred, "SVM Model Predictions" : svm_pred})
+save_df.to_csv("AllModelsPredictions.csv", index=False)
+
+print('---------------ACCURACY SCORES OF EACH MODEL-----------------')
+print("Accuracy Score of our model: {0:0.4f}".format( clf2.score(np.array(testDF_y), ourmodel_pred)))
+if is_categorical:
+    print('Accuracy Score of Sklearn Decision Tree Model Categorical: {0:0.4f}'.format(
+        metrics.accuracy_score(inbuiltmodel_pred, Y_test)))
+    print('Accuracy Score of Sklearn SVM Model Categorical: {0:0.4f}'.format(accuracy_score(svm_pred, Y_test)))
+else:
+    print('Accuracy Score of Sklearn Decision tree Model Numerical: {0:0.4f}'.format(
+        clf2.score(np.array(testDF_y), inbuiltmodel_pred)))
+    print('Accuracy Score of Sklearn SVM Model Numerical: {0:0.4f}'.format(accuracy_score(testDF_y, svm_pred)))
+    print('Accuracy Score of Tensorflow Classification:: {0:0.4f}'.format( accuracy))
+
+print('--------------------------------------------------------------')
+print()
+print('---------------TIME ELAPSED FOR EACH MODEL--------------------')
+print(time_elapsed)
+print('--------------------------------------------------------------')
+print()
+print('---------------MEMORY USAGE BY EACH MODEL---------------------')
+print(memory_usage)
+print('--------------------------------------------------------------')
+print()
+
+if len(set(trainDF_y))==2:
+    # Confusion matrix only for datasets with only 2 classes
+    print('---------------CONFUSION MATRIX GENERATED -----------------')
+    import matplotlib.pyplot as plt
+
+    from sklearn import metrics
+
+    confusion_matrix = metrics.confusion_matrix(np.array(testDF_y), np.array(ourmodel_pred))
+    cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix, display_labels=[False, True])
+
+    cm_display.plot()
+    plt.show()
