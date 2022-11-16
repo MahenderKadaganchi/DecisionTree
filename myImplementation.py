@@ -4,7 +4,10 @@ import math
 from sklearn import tree
 from sklearn.tree import DecisionTreeClassifier
 
+
+
 class Tree:
+    """ The Tree class contains the all the values that are present on each node and the child nodes data."""
     def __init__(self, val, output, depth):
         self.val = val
         self.children = {}
@@ -16,10 +19,15 @@ class Tree:
 
 
 class Decision_tree_classification:
+    """This Class contains all the required methods to implement the decision tree"""
+
+    # Initialize the root of the tree to None
     def __init__(self):
         self.__root = None
 
-    def get_freq(self, n):
+    # This method takes 1d array as an input and
+    # returns a dictionary with keys as unique values and their frequencies as values.
+    def get_unique_freq(self, n):
         data_split = {}
         for i in n:
             if i in data_split:
@@ -28,8 +36,9 @@ class Decision_tree_classification:
                 data_split[i] = 1
         return data_split
 
+    # This method takes the output 1d array and calculates the degree of uncertainty, i.e. entropy
     def get_entropy(self, n):
-        get_items_freq = self.get_freq(n)
+        get_items_freq = self.get_unique_freq(n)
         entropy = 0
         total = len(n)
         for i in get_items_freq:
@@ -37,7 +46,8 @@ class Decision_tree_classification:
             entropy += p * math.log2(p)
         return -1 * entropy
 
-    def get_split_info(self, x, feature_index):
+    # This method returns the split ratio value, used to calculate the gain ratio
+    def get_split_ratio(self, x, feature_index):
         values = set(x[:, feature_index])
         total_size = np.shape(x)[0]
         d = {}
@@ -51,6 +61,7 @@ class Decision_tree_classification:
             split_info += (d[i] / total_size) * math.log2(d[i] / total_size)
         return (-1) * split_info
 
+    # This method is used to calculate the information gain for the given attribute
     def get_information_gain(self, x, y, feature_index):
         tot_info = self.get_entropy(y)
         values = set(x[:, feature_index])
@@ -69,16 +80,18 @@ class Decision_tree_classification:
             curr_info += (data_split[i] / total_size) * self.get_entropy(df1[df1.shape[1] - 1])
         return tot_info - curr_info
 
+    # This method uss information gain and split ratio in order to calculate the gain ratio.
     def get_gain_ratio(self, x, y, feature_index):
         info_gain = self.get_information_gain(x, y, feature_index)
-        split_ratio = self.get_split_info(x, feature_index)
+        split_ratio = self.get_split_ratio(x, feature_index)
         if split_ratio == 0:
             return math.inf
         else:
             return float(info_gain / split_ratio)
 
+    # This method is used to calculate the gini index, which is then used to calculate the gini max value
     def get_gini_index(self, n):
-        get_items_freq = self.get_freq(n)
+        get_items_freq = self.get_unique_freq(n)
         gini = 0
         total = len(n)
         for i in get_items_freq:
@@ -86,6 +99,7 @@ class Decision_tree_classification:
             gini += p ** 2
         return 1 - gini
 
+    # This method is used to calculate the gini max value for the given attribute
     def get_gini_max(self, x, y, feature_index):
         total_gini_value = self.get_gini_index(y)
         values = set(x[:, feature_index])
@@ -104,46 +118,48 @@ class Decision_tree_classification:
             curr_gini += (data_split[i] / total_size) * self.get_gini_index(df1[df1.shape[1] - 1])
         return total_gini_value - curr_gini
 
+    # This method loops through all the features present for the data set passed and
+    # calculates the metrics value for the given metric and returns the best attribute.
+    # We use this best metric to split the data set into the child nodes.
     def get_best_selection_attribute(self, d, y, type, feature_list):
         max_value = -math.inf
         best_feature = None
-        if type == "gini":
-            for i in feature_list:
+        for i in feature_list:
+            # We check if the feature has only 2 unique values and
+            # assign the selection metric to max gini, as it is the best in case of multivalued attributes.
+            if len(self.get_unique_freq(d[:, i])) == 2 or type == "gini":
                 curr_gain = self.get_gini_max(d, y, i)
                 if curr_gain > max_value:
                     best_feature = i
                     max_value = curr_gain
-        elif type == "gain":
-            for i in feature_list:
+            elif type == "gain":
                 curr_gain = self.get_gain_ratio(d, y, i)
                 if curr_gain > max_value:
                     best_feature = i
                     max_value = curr_gain
-        else:
-            for i in feature_list:
+            else:
                 curr_gain = self.get_information_gain(d, y, i)
                 if curr_gain > max_value:
                     best_feature = i
                     max_value = curr_gain
         return best_feature
 
+    # Decision tree is implemented in this method.
+    # If data set belongs to the same output class, we mark the node as leaf and return the node with output class.
+    # If there are no more attributes present to divide the data further,
+    # mark the node as leaf and output the class that has the highest frequency among the data sets.
+    # We then check for the best attribute and split the data using that attribute.
+    # Recursively call the decision_tree method for the child nodes and return the current node in the end.
     def decision_tree(self, d, out_list, metric_type, features_list, tree_depth, classes):
         # If the node consists of only one class.
         if len(set(out_list)) == 1:
-            # print("Reached Leaf node with decision Tree depth = ", tree_depth)
             output = out_list[0]
-            # print("Count of ", out_list[0], "=", len(out_list))
-            # if metric_type == "gain":
-                # print("Current Entropy = 0")
-            # else:
-                # print("Current gini index = 0")
-            # print()
             return Tree(None, output, tree_depth)
 
         # If there are no more features left to classify
         elif len(features_list) == 0:
             # print("Reached Leaf node with decision Tree depth = ", tree_depth)
-            get_items_freq = self.get_freq(out_list)
+            get_items_freq = self.get_unique_freq(out_list)
             curr_count = -math.inf
             output = None
             for i in classes:
@@ -152,45 +168,17 @@ class Decision_tree_classification:
                     if frequency > curr_count:
                         output = i
                         curr_count = frequency
-                    # print("Count of ", i, "=", frequency)
-            # if metric_type == "gain":
-            #     print("Current Entropy = ", self.get_entropy(out_list))
-            # else:
-            #     print("Current gini index = 0", self.get_gini_index(out_list))
-            # print()
             return Tree(None, output, tree_depth)
 
-        # Find the best selection metric to split data.
         best_feature = self.get_best_selection_attribute(d, out_list, metric_type, features_list)
-
-        # need to update this part of the code
-        # print("Decision Tree depth = ", tree_depth)
-        freq_map = self.get_freq(out_list)
+        freq_map = self.get_unique_freq(out_list)
         output = None
         max_count = -math.inf
-
         for i in classes:
             if i in freq_map:
-            #     print("Count of", i, "=", 0)
-            # else:
                 if freq_map[i] > max_count:
                     output = i
                     max_count = freq_map[i]
-                # print("Count of", i, "=", freq_map[i])
-
-        # if metric_type == "gain":
-        #     print("Current Entropy = ", self.get_entropy(out_list))
-        #     print("Data is split using the feature: ", best_feature,
-        #           " with Gain ratio= ", self.get_gain_ratio(d, out_list, best_feature))
-        # elif metric_type == "gini":
-        #     print("Current gini index = ", self.get_gini_index(out_list))
-        #     print("Data is split using the feature: ", best_feature,
-        #           " with Gini gain = ", self.get_gini_max(d, out_list, best_feature))
-        # else:
-        #     print("Current Entropy = ", self.get_entropy(out_list))
-        #     print("Data is split using the feature: ", best_feature,
-        #           " with information Gain = ", self.get_information_gain(d, out_list, best_feature))
-        # print()
         values = set(d[:, best_feature])
         df_complete = pd.DataFrame(d)
         df_x = pd.DataFrame(d)
@@ -209,59 +197,49 @@ class Decision_tree_classification:
         features_list.insert(index, best_feature)
         return curr_node
 
+    # Preprocessing method is used to append all the attributes, output classes present in the data set
     def preprocessing(self, d, y, metric_type="gain"):
         features = [i for i in range(len(d[0]))]
         classes = set(y)
         initial_depth = 0
         self.__root = self.decision_tree(d, y, metric_type, features, initial_depth, classes)
 
+    # This method is used to predict the output values for the given input
     def __predict_for(self, data, node):
-        # predicts the class for a given testing point and returns the answer
-
-        # We have reached a leaf node
-        # print("In Predict For: ")
-        # print("Node value : ", node.val, " Node children: ", len(node.children), " Node output: ", type(node.output))
         if len(node.children) == 0:
-            # print("Inside the if condition len(node.children) == 0:")
             return node.output
-        # print("In Predict For after : len(node.children) == 0")
-
-        val = data[node.val]  # represents the value of feature on which the split was made
-        # print("In Predict For after val = data[node.val]")
+        val = data[node.val]
         if val not in node.children:
             return node.output
-
-        # print("In Predict For after if val not in node.children:")
-        # Recursively call on the splits
         return self.__predict_for(data, node.children[val])
 
+    # This method is used for preprocessing to calculate the predicted output
     def predict(self, d):
         Y = [0 for i in range(len(d))]
         for i in range(len(d)):
-            # print("Predict: Row number = ", i, "| Data = ", d[i])
             Y[i] = self.__predict_for(d[i], self.__root)
         return np.array(Y)
 
+    # This method is used to calculate the precision of the model. It is scaled to 1.
     def score(self, X, Y):
-        # returns the mean accuracy
-        # Y_pred = self.predict(X)
         count = 0
         for i in range(len(Y)):
             if X[i] == Y[i]:
                 count += 1
         return count / len(Y)
 
+    # Print the tree in preorder traversal way.
     def print_tree_only(self, node, spacing=""):
         # Base case: we've reached a leaf
         if len(node.children) == 0:
             print(spacing + "Leaf Node: Attribute_Split: " , str(node.val) , " Tree Depth = ",node.depth , " Label Class: " , str(node.output))
             return
 
-        # Print the question at this node
+        # Print the Node with the number of children and attribute used to split
         print(spacing + "Regular Node: with ", len(node.children) , " Children and Attribute_Split: " , str(node.val),  " Tree Depth = ",node.depth)
 
         for i in node.children:
-            # Call this function recursively on the true branch
+            # Call this function recursively on all the child branches
             print(spacing + '-->Child')
             self.print_tree_only(node.children[i], spacing + "  ")
 
@@ -312,17 +290,38 @@ for lst in testDF_x:
     testDF_y.append(lst[-1])
     del lst[-1]
 
-print('X train: ', np.array(lst))
+print('X train: ', np.array(trainDF_x))
 print('Y train: ', np.array(trainDF_y))
 print('X test: ', np.array(testDF_x))
 print('Y test: ', np.array(testDF_y))
 
 clf2 = Decision_tree_classification()
-tree = clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(), "info_gain")
+tree = clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(), "gain")
 Y_pred2 = clf2.predict(np.array(testDF_x))
-print("Predictions : ", Y_pred2)
-print("Predictions Type: ", type(Y_pred2[0]))
-print(clf2.score(np.array(testDF_y), Y_pred2))
-
-clf2.print_tree()
+print("Predictions of our model: ", Y_pred2)
+# clf2.print_tree()
 print()
+print("Score of our model: ", clf2.score(np.array(testDF_y), Y_pred2))
+print()
+
+
+# print("Performing inbuilt DT on same dataset::")
+# clf4 = DecisionTreeClassifier()
+# clf4.fit(np.array(trainDF_x), np.array(trainDF_y))
+# inbuiltmodel_pred = clf4.predict(np.array(testDF_x))
+# print('Predictions Score of Inbuilt Model: {0:0.4f}'.format(clf2.score(np.array(testDF_y), inbuiltmodel_pred)))
+# print()
+#
+# print("Performing SVM on same dataset::")
+# from sklearn.svm import SVC
+# from sklearn.metrics import accuracy_score
+# svc=SVC()
+# svc.fit(np.array(trainDF_x), np.array(trainDF_y).flatten())
+# svm_pred=svc.predict(np.array(testDF_x))
+# print('SVM Model accuracy score with default hyperparameters: {0:0.4f}'. format(accuracy_score(testDF_y, svm_pred)))
+#
+#
+# #Saving predictions generated by the three models
+# save_df = pd.DataFrame({"Original Test Data": testDF_y, "OurModel Predictions" : Y_pred2, "InBuilt DT Predictions:" : inbuiltmodel_pred, "SVM Model Predictions" : svm_pred})
+# save_df.to_csv("Predictions.csv", index=False)
+# print()
