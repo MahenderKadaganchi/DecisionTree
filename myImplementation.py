@@ -2,6 +2,8 @@ import csv
 import time
 import tracemalloc
 import os
+
+import seaborn as sns
 from sklearn import metrics
 import pandas as pd
 import numpy as np
@@ -159,14 +161,14 @@ class Decision_tree_classification:
     # Recursively call the decision_tree method for the child nodes and return the current node in the end.
     # Remove the attribute from the feature list as this attribute cannot be used to divide the data further
     # along the depth of the tree.
-    def decision_tree(self, d, out_list, metric_type, features_list, tree_depth, classes):
+    def decision_tree(self, d, out_list, metric_type, attribute_list, tree_depth, classes):
         # If the node consists of only one class.
         if len(set(out_list)) == 1:
             output = out_list[0]
             return Tree(None, output, tree_depth)
 
         # If there are no more features left to classify
-        elif len(features_list) == 0:
+        elif len(attribute_list) == 0:
             # print("Reached Leaf node with decision Tree depth = ", tree_depth)
             get_items_freq = self.get_unique_freq(out_list)
             curr_count = -math.inf
@@ -179,7 +181,7 @@ class Decision_tree_classification:
                         curr_count = frequency
             return Tree(None, output, tree_depth)
 
-        best_feature = self.get_best_selection_attribute(d, out_list, metric_type, features_list)
+        best_attribute = self.get_best_selection_attribute(d, out_list, metric_type, attribute_list)
         freq_map = self.get_unique_freq(out_list)
         output = None
         max_count = -math.inf
@@ -188,26 +190,26 @@ class Decision_tree_classification:
                 if freq_map[i] > max_count:
                     output = i
                     max_count = freq_map[i]
-        values = set(d[:, best_feature])
+        values = set(d[:, best_attribute])
         df_complete = pd.DataFrame(d)
         df_x = pd.DataFrame(d)
         df_complete[df_complete.shape[1]] = out_list
-        curr_node = Tree(best_feature, output, tree_depth)
-        index = features_list.index(best_feature)
-        features_list.remove(best_feature)
+        curr_node = Tree(best_attribute, output, tree_depth)
+        index = attribute_list.index(best_attribute)
+        attribute_list.remove(best_attribute)
 
         for i in values:
-            dfx = df_x[df_x[best_feature] == i]
-            dfy = df_complete[df_complete[best_feature] == i]
-            node = self.decision_tree(dfx.to_numpy(), (dfy.to_numpy()[:, -1:]).flatten(), metric_type, features_list,
+            dfx = df_x[df_x[best_attribute] == i]
+            dfy = df_complete[df_complete[best_attribute] == i]
+            node = self.decision_tree(dfx.to_numpy(), (dfy.to_numpy()[:, -1:]).flatten(), metric_type, attribute_list,
                                       tree_depth + 1, classes)
             curr_node.add_child(i, node)
 
-        features_list.insert(index, best_feature)
+        attribute_list.insert(index, best_attribute)
         return curr_node
 
     # Preprocessing method is used to append all the attributes, output classes present in the data set
-    def preprocessing(self, d, y, metric_type):
+    def preprocess_input_params(self, d, y, metric_type):
         features = [i for i in range(len(d[0]))]
         classes = set(y)
         initial_depth = 0
@@ -291,7 +293,7 @@ def preprocess_dataset(data,datatype):#preprocessing the dataframe before passin
 
     #finding min, max, iqr's of data and splitting the values accordigly
     try:
-        for (columnName, columnData) in data.iteritems():
+        for (columnName, columnData) in data.items():
             if is_numeric_dtype(df[columnName]):
                 min = df.describe().loc[['min']]
                 iqr1 = df.describe().loc[['25%']]
@@ -312,7 +314,7 @@ def preprocess_dataset(data,datatype):#preprocessing the dataframe before passin
 
 time_elapsed = {}
 memory_usage = {}
-dir = 'FinalDataSets/Dataset15-Maternal Health Risk Data Set.csv'
+dir = 'FinalDataSets/Dataset3-breast-cancer-2classes.csv'
 df = pd.read_csv(dir)
 df.describe()
 
@@ -339,7 +341,7 @@ preprocess_dataset(cdf,is_categorical)
 lst = df.values.tolist()
 tick = time.time()#start time
 tracemalloc.start()
-trainDF_x, testDF_x = model_selection.train_test_split(lst, test_size=0.3)
+trainDF_x, testDF_x = model_selection.train_test_split(lst)
 trainDF_y =[]
 for l in trainDF_x:
     trainDF_y.append(l[-1])
@@ -353,7 +355,7 @@ for lst in testDF_x:
 accuracy_scores = {}
 
 clf2 = Decision_tree_classification()
-clf2.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"gain")
+clf2.preprocess_input_params(np.array(trainDF_x), np.array(trainDF_y).flatten(), "gain")
 ourmodel_pred = clf2.predict(np.array(testDF_x))
 print("Predictions of our model with gain ratio: ", ourmodel_pred)
 print("Accuracy Score of our model with gain ratio metric: {0:0.4f}".format( clf2.score(np.array(testDF_y), ourmodel_pred)))
@@ -361,32 +363,32 @@ tock = time.time() # end time
 memory_usage['Our Model Memory Usage with GainRatio'] = tracemalloc.get_traced_memory()[0]
 tracemalloc.stop()
 time_elapsed['Our Model time with Gain Ratio'] = round((tock - tick) * 1000, 2)
-accuracy_scores['Our Model time with Gain Ratio'] = clf2.score(np.array(testDF_y), ourmodel_pred)
+accuracy_scores['Our Model Accuracy with Gain Ratio'] = clf2.score(np.array(testDF_y), ourmodel_pred)
 print()
 
 tracemalloc.start()
 tick = time.time()
 clf3 = Decision_tree_classification()
-clf3.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"gini")
+clf3.preprocess_input_params(np.array(trainDF_x), np.array(trainDF_y).flatten(), "gini")
 ourmodel_pred_gini = clf3.predict(np.array(testDF_x))
 print("Accuracy Score of our model with gini index metric: {0:0.4f}".format( clf3.score(np.array(testDF_y), ourmodel_pred_gini)))
 tock = time.time()
 memory_usage['Our Model Memory Usage with Gini Index'] = tracemalloc.get_traced_memory()[0]
 tracemalloc.stop()
 time_elapsed['Our Model time with Gini Index'] = round((tock - tick) * 1000, 2)
-accuracy_scores['Our Model time with Gini Index'] = clf3.score(np.array(testDF_y), ourmodel_pred_gini)
+accuracy_scores['Our Model Accuracy with Gini Index'] = clf3.score(np.array(testDF_y), ourmodel_pred_gini)
 
 tracemalloc.start()
 tick = time.time()
 clf5 = Decision_tree_classification()
-clf5.preprocessing(np.array(trainDF_x), np.array(trainDF_y).flatten(),"infogain")
+clf5.preprocess_input_params(np.array(trainDF_x), np.array(trainDF_y).flatten(), "infogain")
 ourmodel_pred_infogain = clf5.predict(np.array(testDF_x))
 print("Accuracy Score of our model with Information Info Gain: {0:0.4f}".format( clf5.score(np.array(testDF_y), ourmodel_pred_infogain)))
 tock = time.time()
 memory_usage['Our Model Memory Usage with Info Gain'] = tracemalloc.get_traced_memory()[0]
 tracemalloc.stop()
 time_elapsed['Our Model time with Info  Gain'] = round((tock - tick) * 1000, 2)
-accuracy_scores['Our Model time with Info Gain'] = clf5.score(np.array(testDF_y), ourmodel_pred_infogain)
+accuracy_scores['Our Model Accuracy with Info Gain'] = clf5.score(np.array(testDF_y), ourmodel_pred_infogain)
 
 if is_categorical:
     tracemalloc.start()
@@ -492,16 +494,21 @@ else:
     time_elapsed['TensorFlow Model time'] = round((tock - tick) * 1000, 2)
     memory_usage['Tensorflow model memory usage'] = tracemalloc.get_traced_memory()[0]
     tracemalloc.stop()
-    accuracy_scores['SVM Model Accuracy'] = accuracy
+    accuracy_scores['Tensorflow Model Accuracy'] = accuracy
 
 
 
 #Saving predictions generated by the three models
-save_df = pd.DataFrame({"Original Test Data": testDF_y, "OurModel Predictions" : ourmodel_pred, "InBuilt DT Predictions:" : inbuiltmodel_pred, "SVM Model Predictions" : svm_pred})
-save_df.to_csv(f'Outputs/{outfolder}/AllPredictions.csv', index=False)
+try:
+    save_df = pd.DataFrame({"Original Test Data": testDF_y, "OurModel Predictions": ourmodel_pred,
+                            "InBuilt DT Predictions:": inbuiltmodel_pred, "SVM Model Predictions": svm_pred})
+    save_df.to_csv(f'Outputs/{outfolder}/AllPredictions.csv', index=False)
+except:
+    print()
+
 table_path = dir.partition('/')[2].partition('.')[0]
 with open(f'Outputs/{outfolder}/Tables_{table_path}.csv', 'w') as f:
-    data = ["Model", "Time Elapsed(ms)","Memory usage(kb"]
+    data = ["Model", "Time Elapsed(ms)","Memory usage(kb)"]
     writer = csv.writer(f)
     writer.writerow(data)
     for key in time_elapsed.keys() :
@@ -543,32 +550,42 @@ print(memory_usage)
 print('--------------------------------------------------------------')
 print()
 
-if len(set(trainDF_y))==2:
-    # Confusion matrix only for datasets with only 2 classes
-    print('---------------CONFUSION MATRIX GENERATED -----------------')
-    import matplotlib.pyplot as plt
+#if len(set(trainDF_y))==2:
+# Confusion matrix only for datasets with only 2 classes
+print('---------------CONFUSION MATRIX GENERATED -----------------')
+import matplotlib.pyplot as plt
 
-    from sklearn import metrics
+from sklearn import metrics
 
-    confusion_matrix = metrics.confusion_matrix(np.array(testDF_y), np.array(ourmodel_pred))
-    cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix, display_labels=[False, True])
+confusion_matrix = metrics.confusion_matrix(np.array(testDF_y).flatten(), np.array(ourmodel_pred).flatten())
+#cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix, display_labels=[False, True])
 
-    cm_display.plot()
-    plt.savefig(f'Outputs/{outfolder}/ConfusionMatrix.png')
+labels = set(np.array(testDF_y))
+print(labels)
+cm_df = pd.DataFrame(confusion_matrix,
+                     index = list(labels),
+                     columns = list(labels))
+plt.figure(figsize=(5,4))
+sns.heatmap(cm_df, annot=True)
+plt.title('Confusion Matrix')
+plt.ylabel('Actual Values')
+plt.xlabel('Predicted Values')
+plt.show()
+plt.savefig(f'Outputs/{outfolder}/ConfusionMatrix.png')
+#plt.show()
+
+from sklearn.metrics import roc_curve, roc_auc_score
+try:
+    print('---------------ROC Curve GENERATED -----------------')
+    false_positive_rate1, true_positive_rate1, threshold1 = roc_curve(testDF_y, ourmodel_pred)
+    plt.subplots(1, figsize=(4, 4))
+    plt.title('Receiver Operating Characteristic - DecisionTree')
+    plt.plot(false_positive_rate1, true_positive_rate1)
+    plt.plot([0, 1], ls="--")
+    plt.plot([0, 0], [1, 0], c=".7"), plt.plot([1, 1], c=".7")
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.savefig(f'Outputs/{outfolder}/ROCCurve.png')
     #plt.show()
-
-    from sklearn.metrics import roc_curve, roc_auc_score
-    try:
-        print('---------------ROC Curve GENERATED -----------------')
-        false_positive_rate1, true_positive_rate1, threshold1 = roc_curve(testDF_y, ourmodel_pred)
-        plt.subplots(1, figsize=(4, 4))
-        plt.title('Receiver Operating Characteristic - DecisionTree')
-        plt.plot(false_positive_rate1, true_positive_rate1)
-        plt.plot([0, 1], ls="--")
-        plt.plot([0, 0], [1, 0], c=".7"), plt.plot([1, 1], c=".7")
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.savefig(f'Outputs/{outfolder}/ROCCurve.png')
-        #plt.show()
-    except:
-        print('ROC CURVE NOT GENERATED')
+except:
+    print('ROC CURVE NOT GENERATED')
